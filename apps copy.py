@@ -4,7 +4,7 @@ from send_mail_smtp import sendmail
 from ticket_crwal import get_data_from_yeosin
 import time
 import crwal_setting
-5
+
 
 is_crawling = False  # 크롤링 진행 상태를 나타내는 전역 변수
 request_email =[]

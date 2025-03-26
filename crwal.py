@@ -1,6 +1,5 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
 
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -10,28 +9,28 @@ from selenium.common.exceptions import NoSuchElementException
 from fake_useragent import UserAgent
 
 import crwal_setting as crwal
-import db_test as db
+import Db_controllor as db
 
+
+from send_mail_smtp import sendmail
 import time
-import csv
-import re
 
-from datetime import datetime
-import pprint
+error_count = 0
 
 def gangnamunni_crawl_data(driver, main_window, num):
-    
-    price_CSS_SELECTOR ='.flex.flex-row.border.border-gray-200.rounded-lg > div > .flex.flex-col >.flex.flex-row.typo-subTitle1Bold.text-typography-primary'
-    option_name_CSS_SELECTOR ='.flex.flex-row.border.border-gray-200.rounded-lg > div > h3'
-    hospital_name_CSS_SELECTOR ='#hospital-page-text-title-hospitalname'
-    hospital_address_CSS_SELECTOR ='.HospitalMap__StyledAddressWrapper-sc-11eb21fc-0.eaGrCG.addressWrapper > address'
-    info_list = []
+    global error_count
+    max_errors = 3
+
+    price_CSS_SELECTOR ='.flex.flex-row.border.border-gray-200.rounded-lg > div > .flex.flex-col >.flex.flex-row.typo-subTitle1Bold.text-typography-primary' # 가격
+    option_name_CSS_SELECTOR ='.flex.flex-row.border.border-gray-200.rounded-lg > div > h3' # 시술명
+    hospital_name_CSS_SELECTOR ='#hospital-page-text-title-hospitalname' # 병원병
+    hospital_address_CSS_SELECTOR ='.HospitalMap__StyledAddressWrapper-sc-11eb21fc-0.eaGrCG.addressWrapper > address' # 병원주소
     try:
         more_button = driver.find_element(By.XPATH, f'//*[@id="event-card-component-ui-{num}"]')
         href_value = more_button.get_attribute("href")
         driver.execute_script("window.open('" + href_value + "')")
         print(f"num: {num}, href: {href_value}")
-        driver.implicitly_wait(5)
+
 
         # 창 현재창인지 확인
         for handle in driver.window_handles:
@@ -50,7 +49,6 @@ def gangnamunni_crawl_data(driver, main_window, num):
         except TimeoutException:
             print("옵션출력 에러")
 
-        driver.implicitly_wait(5)
         # 병원명, 병원주소, 시술명, 가격, url
         info = []
         url = driver.current_url
@@ -63,7 +61,7 @@ def gangnamunni_crawl_data(driver, main_window, num):
             driver.execute_script("arguments[0].click();", hospital_info_button)
         except NoSuchElementException:
             print("병원 버튼을 찾을 수 없습니다.")
-            crwal.nordvpn()
+            time.sleep(120)
 
         try : 
             hospital_name = driver.find_element(By.CSS_SELECTOR, hospital_name_CSS_SELECTOR).text
@@ -73,45 +71,34 @@ def gangnamunni_crawl_data(driver, main_window, num):
         try :
             hospital_address_full = driver.find_element(By.CSS_SELECTOR, hospital_address_CSS_SELECTOR).text
         except :
-            print("병원명 찾기 불가")
+            print("병원 주소 찾기 불가")
 
         for b in info:
             b.insert(0, hospital_name)
             b.insert(1, hospital_address_full)
-
         
         driver.close()
         # 메인 창으로 전환
         driver.switch_to.window(main_window)
+        error_count = 0 
         return info
-    except TimeoutException:
-        print("스킵")
-        # 새 창 닫기
-        driver.close()
-        # 메인 창으로 전환
-        driver.switch_to.window(main_window)
-    except NoSuchElementException as e:
-        print(f"요소를 찾을 수 없습니다: {e}")
-        # 새 창 닫기
-        driver.close()
-        # 메인 창으로 전환
-        driver.switch_to.window(main_window)
+
     except Exception as e:
-        print("2222")
-        print(f"예외 발생: {e}")
         # 새 창 닫기
         driver.close()
         # 메인 창으로 전환
         driver.switch_to.window(main_window)
-    if info_list == []:
-        print("")
-    else:
-        return info_list
+        error_count += 1
+        print(f"예외 발생: {e}\n강남언니 크롤링 확인({error_count}회)")
+        if error_count >= max_errors:
+            sendmail(f"예외 발생: {e}\n강남언니 크롤링 확인)")
+            driver.quit()   
 
 def gangnamunni_crawl():
     info_list = []
     try:
         driver = crwal.crwal_setting(f'https://www.gangnamunni.com/events?q=%EB%A6%AC%ED%94%84%ED%8C%85')
+        driver.implicitly_wait(10)
 
         scroll_location = driver.execute_script("return document.body.scrollHeight")
         try:
@@ -130,28 +117,27 @@ def gangnamunni_crawl():
         driver = crwal.scroll(driver, scroll_location)
 
         main_window = driver.current_window_handle
-        count_num = 0
+        count_num = 1
         refuse_num = 0
 
         for i in range(event_count):
+            print(f"{count_num} / {event_count}")
             a = gangnamunni_crawl_data(driver, main_window, i)
             if a is not None:
                 info_list.extend(a)
                 for data in a :
                     # print(a)
                     db.execute_query(data)
-            
-
             count_num += 1
             refuse_num += 1
 
-            print(f"{count_num} / {event_count}")
             if refuse_num > 50:
-                crwal.nordvpn()
+                time.sleep(120)
                 refuse_num = 0
         driver.quit()
+        return info_list
     except Exception as e:
         print(f"예외 발생: {e}")
-        print("여기입니다다")
         driver.quit()
-    return info_list
+        return None
+

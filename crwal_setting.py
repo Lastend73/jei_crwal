@@ -1,7 +1,6 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
 
 from fake_useragent import UserAgent
 
@@ -19,12 +18,12 @@ def get_random_user_agent():
 
 def crwal_setting(url): 
     chrome_options = Options()
-    chrome_options.add_argument("headless")
+    # chrome_options.add_argument("headless")
     #  chrome_options.add_argument(f'user-agent={get_random_user_agent}')
 
     driver = webdriver.Chrome(options=chrome_options)
     driver.set_window_size(1024, 1080)
-    driver.implicitly_wait(100)
+    driver.implicitly_wait(10)
     driver.get(url)
 
     return driver
@@ -33,6 +32,7 @@ def scroll(driver, scroll_location):
     while True:
         #현재 스크롤의 가장 아래로 내림
         driver.execute_script("window.scrollTo(0,document.body.scrollHeight)")
+        driver.execute_script("window.scrollTo(0,document.body.scrollHeight-10)")
 
         #전체 스크롤이 늘어날 때까지 대기
         time.sleep(3)

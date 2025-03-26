@@ -9,42 +9,37 @@ from email.utils import formataddr
 
 HOST = "smtp-mail.outlook.com"
 PORT = 587
-def sendmail(to_addr) : 
-    from_addr = formataddr(('황규민','a20240802@jeisys.com'))
-    password = get_app_password()
+
+def sendmail(info) : 
+    from_addr = formataddr(('황규민','이메일'))
+    password = "비밀번호"
 
     # 메일 본문
     msg = MIMEMultipart()
     msg['From'] = from_addr  # 송신자
-    msg['to'] = ", ".join(to_addr)      # 수신자
-    msg["Subject"] = "테스트 이메일" # 제목
+    msg['To'] = "kyu233@jeisys.com" # join() 함수에 문자열을 직접 전달하는 것은 잘못된 사용법입니다
+    msg["Subject"] = info # 제목
 
-    body = "테스트" # 내용
+    body = info # 내용
 
     msg.attach(MIMEText(body,"plain"))
 
-    #첨부파일 
-    with open('강남언니.csv','rb') as file:
-        attach_file = file.read()
+    try:
+        session = smtplib.SMTP(HOST,PORT)
+        session.ehlo()
+        session.starttls()
 
-    file_data = MIMEBase('application', 'octet-stream')
-    file_data.set_payload(attach_file)
-    encoders.encode_base64(file_data)
+        status_code, response = session.login('kyu233@jeisys.com',password)
+        print(f"{status_code} : {response}")
 
-    #첨부파일 해더
-    file_data.add_header('Content-Disposition', "attachment", filename="강남언니.csv") # << 파일 이름 변경해줌(기존 파일 유지)
-    msg.attach(file_data)
+        text = msg.as_string()
+        session.sendmail(from_addr,'kyu233@jeisys.com',text)
 
-
-    session = smtplib.SMTP(HOST,PORT)
-
-    session.ehlo()
-    session.starttls()
-
-    status_code , response = session.login('a20240802@jeisys.com',password)
-    print(f"{status_code} : {response}")
-
-    text = msg.as_string()
-
-    session.sendmail(from_addr,to_addr,text)
-    session.quit()
+    except smtplib.SMTPAuthenticationError:
+        print("인증 오류: 이메일 주소나 비밀번호가 잘못되었습니다.")
+    except smtplib.SMTPException as e:
+        print(f"SMTP 오류 발생: {str(e)}")
+    except Exception as e:
+        print(f"기타 오류 발생: {str(e)}")
+    finally:
+        session.quit()
